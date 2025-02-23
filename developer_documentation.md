@@ -13,32 +13,31 @@ This document provides a comprehensive overview and detailed documentation for t
 ### cache_vectorizer.py
 #### Overview
 #### Overview:
-
-The `cache_vectorizer.py` file contains a utility class named `CustomTextVectorizer`, which is designed to efficiently handle both synchronous and asynchronous text embedding tasks using the OllamaEmbeddings model from the `langchain_ollama` library and RedisVL's vectorization functionality from `redisvl.utils.vectorize`. This class serves as an intermediary between applications and the underlying text embedding models, providing a consistent interface for vectorizing text data regardless of whether the operations are synchronous or asynchronous.
+This Python file, `cache_vectorizer.py`, defines a custom vectorization utility for efficient text embedding using the OllamaEmbeddings model from the `langchain_ollama` library and Redis's vectorization capabilities through `redisvl.utils.vectorize`. The primary purpose of this code is to provide synchronous and asynchronous methods for single-text and batch text embeddings, enabling high-performance text representation in a cacheable manner.
 
 #### Details
 #### Details:
 
-1. **Imports**:
-   - The file imports necessary libraries including `OllamaEmbeddings` from `langchain_ollama`, `CustomTextVectorizer` from `redisvl.utils.vectorize`, `asyncio` for handling asynchronous tasks, and types for type hinting.
+**1. Importing Necessary Libraries:**
+   - `OllamaEmbeddings`: A model from the `langchain_ollama` library, specifically designed for text embeddings using the 'nomic-embed-text' pre-trained model.
+   - `CustomTextVectorizer` and `asyncio`: From `redisvl.utils.vectorize`, which facilitates vectorization with Redis's capabilities.
 
-2. **Function: `create_vectorizer()`**
+**2. Function: `create_vectorizer()`**
+    - Initializes OllamaEmbeddings with the 'nomic-embed-text' model, ensuring that text embeddings are produced efficiently and accurately.
+    - Defines three synchronous embedding functions (`sync_embed`, `sync_embed_many`):
+        * `sync_embed`: Takes a single string of text as input and returns its corresponding vectorized representation (List[float]).
+        * `sync_embed_many`: Accepts a list of strings, each representing a piece of text, and outputs the combined vectors for all inputs in List[List[float]].
+    - Creates asynchronous wrappers (`async_embed`, `async_embed_many`) to achieve vectorization in an event-driven manner. These wrappers leverage `asyncio.to_thread` to execute their respective synchronous methods on a separate thread, ensuring non-blocking behavior and scalability.
+    - Configures and returns a custom `CustomTextVectorizer` object with the following properties:
+        * `embed`: Points to the `sync_embed` function for single-text embeddings.
+        * `aembed`: Points to the `async_embed` asynchronous wrapper for single-text embedding.
+        * `embed_many`: Points to the `sync_embed_many` function for batch text embeddings.
+        * `aembed_many`: Points to the `async_embed_many` asynchronous wrapper for batch text embedding.
 
-   - Initializes an instance of `OllamaEmbeddings` using the 'nomic-embed-text' model.
-   - Defines three functions:
-     - `sync_embed(text: str) -> List[float]`: Embeds a single text string asynchronously and returns its embedded representation as a list of floats, leveraging OllamaEmbeddings' synchronous method `embed_query`.
-     - `sync_embed_many(texts: List[str]) -> List[List[float]]`: Batch embeds multiple texts concurrently using OllamaEmbedings' synchronous method `embed_documents`, returning a list of lists where each inner list corresponds to an embedded document.
-   - Creates asynchronous wrappers for the synchronous methods using `asyncio.to_thread`. The functions `async_embed(text: str) -> List[float]` and `async_embed_many(texts: List[str]) -> List[List[float]]` execute their respective synchronous counterparts on separate threads, ensuring that these tasks do not block the caller's execution.
-   - Configures a `CustomTextVectorizer` object with the following embedded methods:
-     - `embed=sync_embed`: Binds the synchronous single-text embedding function to the vectorizer.
-     - `aembed=async_embed`: Associates the asynchronous single-text embedding function.
-     - `embed_many=sync_embed_many`: Links the batch text embedding function using a synchronous thread pool executor.
-     - `aembed_many=async_embed_many`: Pairs the asynchronous batch text embedding function with an asynchronous task queue.
+**3. Singleton Instance:**
+   - By calling `create_vectorizer()` and assigning its returned value to `vectorizer`, a singleton instance of this custom vectorization utility is created, ensuring a single global object with these methods.
 
-3. **Singleton Instance**:
-   - The `create_vectorizer()` function is called once and returns the `CustomTextVectorizer` instance, ensuring that only one vectorizer object exists in memory, facilitating easy reuse across different parts of a project.
-
-By using this class, applications can efficiently perform text embedding tasks both synchronously and asynchronously while leveraging the powerful OllamaEmbeddings model for quality vector representations.
+This code is intended to be part of a larger system that employs efficient text representation for tasks like semantic search or clustering within a caching environment, leveraging Redis's capabilities for high-speed vector operations.
 
 
 
@@ -46,45 +45,48 @@ By using this class, applications can efficiently perform text embedding tasks b
 #### Overview
 #### Overview
 
-The `test.py` file is a Python script designed for testing the integration of three external libraries: `langchain_ollama`, `redisvl.extensions.llmcache`, and `cache_vectorizer`. The primary goal of this script is to demonstrate how these components can work together to optimize the retrieval and caching of responses from a language model, specifically Llama3.2, using Redis as a backend.
+**test.py** is a Python script that demonstrates the use of several libraries to interact with a language model, specifically ChatOllama, and a cache system based on SemanticCache for optimizing subsequent queries. The primary goal is to compare the time taken between retrieving responses directly from the LLM (Language Learning Model) and using cached data.
 
 #### Details
 #### Details
 
-1. **Imports**
-   - `time`: To measure elapsed time.
-   - `ChatOllama` from `langchain_ollama`: This is a client for the LangChain Ollama language model, which provides an API to interact with the Llama3.2 model.
-   - `SemanticCache` from `redisvl.extensions.llmcache`: This is a cache class that utilizes Redis as its backend and leverages vectorization through `vectorizer`. The goal of this class is to store computed responses alongside their prompts for later retrieval, thereby reducing the need for repeated model execution when similar queries appear.
-   - `vectorizer` from `cache_vectorizer`: This component is responsible for converting textual inputs into numerical representations (vectors) that can be efficiently stored and retrieved by Redis.
+##### Libraries Imported
 
-2. **Environment Variables**
-   - The script loads environment variables via the `dotenv` package, specifically the `REDIS_URL`, which points to a local Redis instance running on port 6379. This is essential for connecting to a real-time Redis server during testing.
+- `time`: Used to measure elapsed time in both the cache check and LLM operations.
+  
+- `langchain_ollama` (imported as `ChatOllama`): This library provides an interface for interacting with ChatOllama, a large language model. It allows users to invoke the model with specific prompts and retrieves the generated responses as text.
 
-3. **Semantic Cache Initialization**
-   - In an exceptional handling block, the script attempts to initialize the `SemanticCache` object with specific parameters:
-     - Cache name: "OllamaLLMCache"
-     - Redis connection URL: localhost:6379
-     - Distance threshold for cache check: 0.1
-     - Vectorizer instance
-     - Connection settings (decode_responses, socket_timeout, retry_on_timeout) to adapt to the local Redis environment
-   - If initialization fails, an error message is printed and execution ends with a non-zero exit status.
+- `redisvl.extensions.llmcache` (imported as `SemanticCache`): The Semantic Cache is a caching solution that leverages Redis as its backend for storing and retrieving key-value pairs. In this script, it stores and manages cached responses to questions, reducing redundant computations with similar inputs by leveraging previously generated outputs.
 
-4. **User Input**
-   - The script prompts the user for their question via the `input` function.
+- `vectorizer`: This class from the `cache_vectorizer` package is utilized in initializing the SemanticCache, as it provides a method for converting textual input into vector representations that can be used for similarity or retrieval purposes within Redis.
 
-5. **ChatOllama Client Initialization**
-   - A `ChatOllama` client is instantiated, utilizing Llama3.2 with verbosity enabled to provide detailed model responses.
+- `os`, `dotenv`: For environment handling and accessing the REDIS_URL from environment variables (which contains the connection string to the Redis database).
 
-6. **Ask Olla Function**
-   - This function takes a question as input and sends it to the ChatOllama client through its `invoke` method, which in turn returns a response. The content of this response is then returned by the function.
+##### Key Functions/Methods
 
-7. **Cache Check and Response Retrieval**:
-   - The script measures the time taken for a cache check using the `time` module's `time()` function before and after calling the `check()` method on an instance of `SemanticCache`. If cached data exists, it prints out the prompt and response from the cache along with the elapsed time.
+1. **`load_dotenv()`**: This function loads the `.env` file's environment variables into the process-wide variable namespace, enabling access to sensitive data such as the REDIS_URL without hardcoding it in the source code.
+   
+2. **Initialization of `SemanticCache`**
 
-8. **LLM Operations**:
-   - When no cached response is found, the script executes the user's question through the ChatOllama client, capturing its output in a variable named `response`. The time taken for this operation is measured using `time.time()`.
-   - In parallel with measuring LLM execution time, the script attempts to store the generated response alongside the original prompt within the `SemanticCache` instance, utilizing the `store()` method.
+   - The code attempts to instantiate a cache object using `SemanticCache`. If successful, it sets up a connection string pointing to Redis running locally at port 6379 and employs specified vectorization parameters from the `vectorizer` class for generating vectors.
+  
+3. **Prompt Handling**: It prompts the user with "Enter your question:" to gather input as a string, which will be used as both an LLM prompt and cache key.
+   
+4. **`ask_ollama(question: str)`**
 
-9. **Exception Handling**:
-   - Any exceptions occurring during either LLM operations or cache insertions are caught and printed as error messages. This ensures that failures in these components do not disrupt the overall testing process.
+   - This function invokes ChatOllama's `invoke()` method using the provided question as its input. The model generates a response in text format, which is then returned.
+
+5. **Cache Check (Time Measurement)**
+
+   - The script initiates time measurement to gauge how long it takes for the `SemanticCache` system to find an entry for the given prompt. If cached data exists, it prints out the retrieved prompt and corresponding vector representation along with the elapsed time taken for retrieval from cache.
+
+6. **LLM Operations (Direct Retrieval)**
+
+   - In case the prompt is not found in the cache, the script calls `ask_ollama` as before to obtain a response from ChatOllama via the LLM directly.
+  
+7. **Caching Responses**
+   
+   - Once an LLM response has been fetched, it gets stored back into the `SemanticCache`, ensuring future queries with identical prompts will quickly return cached results instead of re-executing LLM operations.
+  
+8. **Error Handling**: If any exceptions occur during either cache retrieval or storing, they are caught and printed to indicate operational issues for debugging purposes.
 
