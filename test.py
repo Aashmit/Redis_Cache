@@ -28,7 +28,7 @@ except Exception as e:
 
 question = input("Enter your question:")
 
-client = ChatOllama(model="llama3.2",verbose=True)
+client = ChatOllama(model="llama3.2:1B",verbose=True)
 
 def ask_ollama(question: str) -> str:
     response = client.invoke(input=question)

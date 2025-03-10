@@ -12,12 +12,11 @@ This document provides a comprehensive overview and detailed documentation for t
 
 ### cache_vectorizer.py
 #### Overview
-#### Overview
 
 This Python file, `cache_vectorizer.py`, implements a custom text vectorization class named `CustomTextVectorizer`. The purpose of this class is to provide asynchronous (async) and synchronous (sync) methods for embedding text data using the OllamaEmbeddings model from the langchain\_ollama library. This is achieved through the use of asyncio for asynchronous operations and threading for synchronous operations, ensuring that the vectorization process remains efficient even when dealing with large datasets or high concurrency.
 
 #### Details
-#### Details
+
 
 1. **Imports**
    - The file imports necessary modules:
@@ -42,11 +41,10 @@ The class `CustomTextVectorizer` created by this method provides flexibility in 
 
 ### test.py
 #### Overview
-#### Overview
+
 
 The `test.py` file is a Python script designed for testing and demonstrating the functionality of a conversational AI model, specifically using ChatOllama (an API client for OpenAI's ChatGLM) and Semantic Cache for optimizing subsequent interactions. This script is intended to serve as a user interface where users can input questions, receive responses from the model, measure time taken for both cache hits and miss scenarios, and observe caching behavior.
 
-#### Details
 #### Details
 
 **1. Import Statements:**
